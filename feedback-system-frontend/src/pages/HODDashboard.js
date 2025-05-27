@@ -43,21 +43,23 @@ function HODDashboard() {
   };
 
   const assignFeedback = async (feedback_id) => {
-    if (!employeeId) {
-      alert('Please enter an employee ID');
-      return;
-    }
-
+    console.log(feedback_id, employeeId);
     try {
-      await axios.post('http://localhost:5000/api/feedback/assign', {
+
+      if (parseInt(employeeId) === 1 || parseInt(employeeId) === 2) {
+
+        await axios.post('http://localhost:5000/api/feedback/assign', {
         feedback_id,
         hod_id: user.id,
         employee_id: parseInt(employeeId),
       });
       alert("Feedback assigned successfully!");
       fetchFeedbacks();
-      setEmployeeId(''); // Reset employee ID input
+      }
+      
+      
     } catch (err) {
+
       alert("Failed to assign feedback. Please try again.");
       console.error('Error assigning feedback:', err);
     }
@@ -143,19 +145,20 @@ function HODDashboard() {
                   <p><strong>Submitted:</strong> {new Date(f.created_at).toLocaleString()}</p>
                 </div>
                 <div className="assignment-section">
-                  <input
-                    type="number"
-                    placeholder="Enter Employee ID"
-                    value={employeeId}
-                    onChange={e => setEmployeeId(e.target.value)}
-                    className="employee-input"
-                  />
                   <button 
-                    onClick={() => assignFeedback(f.id)}
+                    onClick = {() => {assignFeedback(f.id);
+                      setEmployeeId('1');
+                    }}
                     className="assign-button"
-                  >
-                    Assign to Employee
-                  </button>
+                    >
+                      Assign to 1</button>
+                  <button 
+                    onClick = {() => {assignFeedback(f.id);
+                      setEmployeeId('2');
+                    }}
+                    className="assign-button"
+                    >
+                      Assign to 2</button>
                 </div>
               </div>
             ))
