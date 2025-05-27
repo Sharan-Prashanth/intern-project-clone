@@ -8,12 +8,13 @@ const generateTrackingKey = () => {
 
 exports.submitFeedback = (req, res) => {
   const { name, email, subject, message, category } = req.body;
+  console.log({ name, email, subject, message, category });
+
   const file = req.file ? req.file.filename : null;
   const tracking_key = generateTrackingKey();
 
   console.log('Submitting feedback:', { name, email, subject, message, category });
 
-  // First, check if user exists
   const checkUserSql = 'SELECT id FROM users WHERE email = ?';
   db.query(checkUserSql, [email], (err, results) => {
     if (err) {
@@ -26,8 +27,8 @@ exports.submitFeedback = (req, res) => {
     let userId;
     if (results.length === 0) {
       const createUserSql = 'INSERT INTO users (username, email, password, name, user_type) VALUES (?, ?, ?, ?, ?)';
-      const username = email.split('@')[0]; // Generate username from email
-      const defaultPassword = 'password123'; // Default password
+      const username = email.split('@')[0]; 
+      const defaultPassword = 'password123';``
       db.query(createUserSql, [username, email, defaultPassword, name, 'employee'], (err, result) => {
         if (err) {
           console.error("Error creating user:", err);
@@ -168,7 +169,7 @@ exports.submitEmployeeResponse = (req, res) => {
       return res.status(400).json({ message: "A response has already been submitted for this feedback" });
     }
 
-    // If no response exists, proceed with insertion
+    // If no response 
     const insertSql = `INSERT INTO feedback_responses (assignment_id, employee_reply, status) 
                       VALUES (?, ?, 'Pending')`;
 
@@ -180,7 +181,7 @@ exports.submitEmployeeResponse = (req, res) => {
 
       console.log('Response inserted with ID:', result.insertId);
 
-      // Update feedback status to 'Under Review'
+      // Under Review
       const updateSql = `
         UPDATE feedback f 
         JOIN feedback_assignments fa ON f.id = fa.feedback_id 
@@ -356,7 +357,6 @@ exports.getFeedbackByTrackingKey = (req, res) => {
     return res.status(400).json({ message: "Tracking key is required" });
   }
 
-  // First, get the user ID from the tracking key
   const userSql = `
     SELECT f.user_id, f.id as feedback_id
     FROM feedback f
@@ -380,7 +380,7 @@ exports.getFeedbackByTrackingKey = (req, res) => {
     const userId = userResults[0].user_id;
     console.log('Found user ID:', userId);
 
-    // Now get all feedback for this user
+    // tracking status of the feedback
     const feedbackSql = `
       SELECT 
         f.id,
@@ -423,7 +423,6 @@ exports.getFeedbackByTrackingKey = (req, res) => {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
-      // Add all user feedback to the response
       const response = {
         current_feedback: specificFeedback,
         all_feedback: feedbackResults

@@ -126,9 +126,16 @@
 .status.completed { background: #e8f5e9; color: #2e7d32; }
 .status.under_review { background: #f3e5f5; color: #7b1fa2; }
 
-.assignment-section, .review-section {
+.review-section {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+.assignment-section {
+  display: flex;
   gap: 10px;
   margin-top: 15px;
   padding-top: 15px;
@@ -171,6 +178,7 @@
 .assign-button {
   background: #2196f3;
   color: white;
+  width: 50%;
 }
 
 .assign-button:hover {
