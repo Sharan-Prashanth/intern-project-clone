@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './UserForm.css';
+import Cookies from 'js-cookie';
 
 const UserForm = () => {
   const [formData, setFormData] = useState({
@@ -10,10 +11,12 @@ const UserForm = () => {
     subject: '',
     message: '',
     category: 'general',
-    file: null
+    file: null,
+    prNumber: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [showLogin, setShowLogin] = useState(false);
   const [loginData, setLoginData] = useState({
     username: '',
@@ -22,12 +25,58 @@ const UserForm = () => {
   });
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const fetchPrNumber = async () => {
+      try {
+        const response = await axios.get('http://localhost:3000/show-cookie', { withCredentials: true });
+        if (response.data) {
+          setFormData(prevData => ({
+            ...prevData,
+            prNumber: response.data
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching PR number:', error);
+        setError('Failed to fetch PR number');
+      }
+    };
+
+    fetchPrNumber();
+  }, []);
+
+  const validateFile = (file) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const maxSize = 5 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      setError('Invalid file type. Please upload JPEG, PNG, GIF, PDF or Word documents only.');
+      return false;
+    }
+
+    if (file.size > maxSize) {
+      setError('File size too large. Maximum size is 5MB.');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
+    
+    if (files && name === 'file') {
+      const file = files[0];
+      if (file && !validateFile(file)) {
+        e.target.value = ''; // Clear the file input
+        return;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: files ? files[0] : value
     }));
+    setError(''); // Clear any previous errors
   };
 
   const handleLoginChange = (e) => {
@@ -81,25 +130,51 @@ const UserForm = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setUploadProgress(0);
 
     try {
       const formDataToSend = new FormData();
-      Object.keys(formData).forEach(key => {
-        formDataToSend.append(key, formData[key]);
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('subject', formData.subject);
+      formDataToSend.append('message', formData.message);
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('prNumber', formData.prNumber);
+      
+      if (formData.file) {
+        formDataToSend.append('file', formData.file);
+      }
+
+      const response = await axios.post('http://localhost:5000/api/feedback', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
       });
 
-      const response = await axios.post('http://localhost:5000/api/feedback', formDataToSend);
-      alert(`Feedback submitted successfully! Your tracking key is: ${response.data.tracking_key}`);
-      setFormData({
-        name: '',
-        email: '',
-        subject: '',
-        message: '',
-        category: 'general',
-        file: null
-      });
+      if (response.data.tracking_key) {
+        alert(`Feedback submitted successfully! Your tracking key is: ${response.data.tracking_key}`);
+        // prNumber should be taken from the session variable 
+
+        setFormData({
+          name: '',
+          email: '',
+          subject: '',
+          message: '',
+          category: 'general',
+          file: null,
+          prNumber: ''
+        });
+        setUploadProgress(0);
+      } else {
+        throw new Error('No tracking key received');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit feedback');
+      console.error('Error submitting feedback:', err);
+      setError(err.response?.data?.message || 'Failed to submit feedback. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -170,6 +245,17 @@ const UserForm = () => {
       ) : (
         <form onSubmit={handleSubmit}>
           <div className="form-group">
+            <label>PR Number:</label>
+            <input
+              type="text"
+              name="prNumber"
+              value={formData.prNumber}
+              onChange={handleChange}
+              required
+              readOnly // no one can alter
+            />
+          </div>
+          <div className="form-group">
             <label>Name:</label>
             <input
               type="text"
@@ -228,11 +314,24 @@ const UserForm = () => {
               type="file"
               name="file"
               onChange={handleChange}
+              accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx"
             />
+            <small className="file-help">
+              Accepted formats: JPEG, PNG, GIF, PDF, Word documents. Max size: 5MB
+            </small>
           </div>
+
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="upload-progress">
+              <div className="progress-bar" style={{ width: `${uploadProgress}%` }}></div>
+              <span>{uploadProgress}% uploaded</span>
+            </div>
+          )}
+
           {error && <div className="error-message">{error}</div>}
+          
           <button type="submit" className="submit-button" disabled={loading}>
-            {loading ? 'Irunga bhaiii...' : 'Submit Feedback'}
+            {loading ? 'Irunga bhai...' : 'Submit Feedback'}
           </button>
         </form>
       )}

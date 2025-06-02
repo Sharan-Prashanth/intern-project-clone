@@ -1,4 +1,6 @@
 const db = require('../db');
+const path = require('path');
+const fs = require('fs');
 
 const generateTrackingKey = () => {
   const timestamp = Date.now().toString().slice(-6);
@@ -6,79 +8,97 @@ const generateTrackingKey = () => {
   return `${timestamp}${random}`;
 };
 
-exports.submitFeedback = (req, res) => {
-  const { name, email, subject, message, category } = req.body;
-  console.log({ name, email, subject, message, category });
+exports.submitFeedback = async (req, res) => {
+  try {
+    const { name, email, subject, message, category, prNumber } = req.body;
+    const file = req.file ? req.file.filename : null;
+    const tracking_key = generateTrackingKey();
 
-  const file = req.file ? req.file.filename : null;
-  const tracking_key = generateTrackingKey();
+    console.log('Submitting feedback:', { name, email, subject, message, category, file, prNumber });
 
-  console.log('Submitting feedback:', { name, email, subject, message, category });
-
-  const checkUserSql = 'SELECT id FROM users WHERE email = ?';
-  db.query(checkUserSql, [email], (err, results) => {
-    if (err) {
-      console.error("Error checking user:", err);
-      return res.status(500).send("Error checking user");
+    // Validate required fields
+    if (!name || !email || !subject || !message || !category) {
+      return res.status(400).json({ message: 'All fields are required' });
     }
 
-    console.log('User check results:', results);
+    // First, check if user exists
+    const checkUserSql = 'SELECT id FROM users WHERE email = ?';
+    const [userResults] = await db.promise().query(checkUserSql, [email]);
 
     let userId;
-    if (results.length === 0) {
+    if (userResults.length === 0) {
+      // Create new user
       const createUserSql = 'INSERT INTO users (username, email, password, name, user_type) VALUES (?, ?, ?, ?, ?)';
-      const username = email.split('@')[0]; 
-      const defaultPassword = 'password123';``
-      db.query(createUserSql, [username, email, defaultPassword, name, 'employee'], (err, result) => {
-        if (err) {
-          console.error("Error creating user:", err);
-          return res.status(500).send("Error creating user");
-        }
-        userId = result.insertId;
-        console.log('Created new user with ID:', userId);
-        insertFeedback(userId);
-      });
+      const username = email.split('@')[0];
+      const defaultPassword = 'password123';
+      
+      const [result] = await db.promise().query(createUserSql, [username, email, defaultPassword, name, 'employee']);
+      userId = result.insertId;
+      console.log('Created new user with ID:', userId);
     } else {
-      userId = results[0].id;
+      userId = userResults[0].id;
       console.log('Using existing user ID:', userId);
-      insertFeedback(userId);
     }
-  });
 
-  function insertFeedback(userId) {
-    const sql = `INSERT INTO feedback (user_id, subject, message, category, file, tracking_key, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    // Insert feedback with pr_number
+    const sql = `INSERT INTO feedback (user_id, subject, message, category, file, tracking_key, status, pr_number) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    db.query(sql, [userId, subject, message, category, file, tracking_key, 'Submitted'], (err, result) => {
-      if (err) {
-        console.error("Error submitting feedback:", err);
-        return res.status(500).send("Error submitting feedback");
-      }
-      console.log('Feedback inserted with ID:', result.insertId);
-      res.status(200).json({ 
-        id: result.insertId,
-        tracking_key: tracking_key,
-        message: 'Feedback submitted successfully'
+    const [feedbackResult] = await db.promise().query(sql, [
+      userId, 
+      subject, 
+      message, 
+      category, 
+      file, 
+      tracking_key, 
+      'Submitted',
+      prNumber || null
+    ]);
+
+    console.log('Feedback inserted with ID:', feedbackResult.insertId);
+    
+    res.status(200).json({ 
+      id: feedbackResult.insertId,
+      tracking_key: tracking_key,
+      message: 'Feedback submitted successfully'
+    });
+
+  } catch (err) {
+    console.error('Error in submitFeedback:', err);
+    
+    // If there was a file uploaded but the operation failed, delete the file
+    if (req.file) {
+      const filePath = path.join(__dirname, '../uploads', req.file.filename);
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) console.error('Error deleting file:', unlinkErr);
       });
+    }
+
+    res.status(500).json({ 
+      message: 'Error submitting feedback',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
-exports.getAllFeedbacks = (req, res) => {
-  const sql = `
-    SELECT f.*, u.name as user_name 
-    FROM feedback f 
-    JOIN users u ON f.user_id = u.id 
-    ORDER BY f.created_at DESC
-  `;
+exports.getAllFeedbacks = async (req, res) => {
+  try {
+    const sql = `
+      SELECT f.*, u.name as user_name 
+      FROM feedback f 
+      JOIN users u ON f.user_id = u.id 
+      ORDER BY f.created_at DESC
+    `;
 
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Failed to fetch feedbacks", err);
-      return res.status(500).send("Error fetching feedbacks");
-    }
+    const [results] = await db.promise().query(sql);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Failed to fetch feedbacks:', err);
+    res.status(500).json({ 
+      message: 'Error fetching feedbacks',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
 };
 
 exports.assignToEmployee = (req, res) => {
@@ -130,15 +150,20 @@ exports.getAssignmentsForEmployee = (req, res) => {
       f.category,
       f.file,
       f.tracking_key,
+      f.pr_number,
+      f.status,
       u.name as user_name,
-      f.created_at
+      f.created_at,
+      fa.assigned_at,
+      fr.employee_reply,
+      fr.status as response_status,
+      fr.hod_comment
     FROM feedback_assignments fa
     JOIN feedback f ON fa.feedback_id = f.id
     JOIN users u ON f.user_id = u.id
     LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
     WHERE fa.employee_id = ?
-    AND fr.id IS NULL
-    ORDER BY f.created_at DESC
+    ORDER BY fa.assigned_at DESC
   `;
 
   db.query(sql, [employee_id], (err, results) => {
@@ -169,7 +194,7 @@ exports.submitEmployeeResponse = (req, res) => {
       return res.status(400).json({ message: "A response has already been submitted for this feedback" });
     }
 
-    // If no response 
+    // If no response exists, proceed with insertion
     const insertSql = `INSERT INTO feedback_responses (assignment_id, employee_reply, status) 
                       VALUES (?, ?, 'Pending')`;
 
@@ -181,7 +206,7 @@ exports.submitEmployeeResponse = (req, res) => {
 
       console.log('Response inserted with ID:', result.insertId);
 
-      // Under Review
+      // Update feedback status to 'Under Review'
       const updateSql = `
         UPDATE feedback f 
         JOIN feedback_assignments fa ON f.id = fa.feedback_id 
@@ -347,89 +372,61 @@ exports.checkAllEmployeeAssignments = (req, res) => {
   });
 };
 
-exports.getFeedbackByTrackingKey = (req, res) => {
-  const { tracking_key } = req.params;
-  
-  console.log('Received request for tracking key:', tracking_key);
-
-  if (!tracking_key) {
-    console.error('No tracking key provided');
-    return res.status(400).json({ message: "Tracking key is required" });
-  }
-
-  const userSql = `
-    SELECT f.user_id, f.id as feedback_id
-    FROM feedback f
-    WHERE f.tracking_key = ?
-  `;
-
-  console.log('Executing user query:', userSql);
-  console.log('With parameters:', [tracking_key]);
-
-  db.query(userSql, [tracking_key], (err, userResults) => {
-    if (err) {
-      console.error("Database error in user query:", err);
-      return res.status(500).json({ message: "Error fetching user information", error: err.message });
-    }
-    
-    if (userResults.length === 0) {
-      console.log('No feedback found for tracking key:', tracking_key);
-      return res.status(404).json({ message: "Feedback not found" });
-    }
-
-    const userId = userResults[0].user_id;
-    console.log('Found user ID:', userId);
-
-    // tracking status of the feedback
-    const feedbackSql = `
-      SELECT 
-        f.id,
-        f.subject,
-        f.message,
-        f.category,
-        f.status,
-        f.tracking_key,
-        f.created_at,
-        f.file,
-        u.name as user_name,
-        e.name as employee_name,
-        fr.employee_reply,
-        fr.status as response_status,
-        fr.hod_comment,
-        fr.created_at as response_date
-      FROM feedback f
-      LEFT JOIN users u ON f.user_id = u.id
-      LEFT JOIN feedback_assignments fa ON f.id = fa.feedback_id
-      LEFT JOIN users e ON fa.employee_id = e.id
-      LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
-      WHERE f.user_id = ?
-      ORDER BY f.created_at DESC
+exports.getFeedbackByTrackingKey = async (req, res) => {
+  try {
+    const { tracking_key } = req.params;
+    const sql = `
+      SELECT f.*, u.name as user_name 
+      FROM feedback f 
+      JOIN users u ON f.user_id = u.id 
+      WHERE f.tracking_key = ?
     `;
 
-    console.log('Executing feedback query:', feedbackSql);
-    console.log('With parameters:', [userId]);
+    const [results] = await db.promise().query(sql, [tracking_key]);
+    
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Feedback not found' });
+    }
 
-    db.query(feedbackSql, [userId], (err2, feedbackResults) => {
-      if (err2) {
-        console.error("Database error in feedback query:", err2);
-        return res.status(500).json({ message: "Error fetching feedback", error: err2.message });
-      }
-
-      // Find the specific feedback that matches the tracking key
-      const specificFeedback = feedbackResults.find(f => f.tracking_key === tracking_key);
-      
-      if (!specificFeedback) {
-        console.log('No feedback found for tracking key:', tracking_key);
-        return res.status(404).json({ message: "Feedback not found" });
-      }
-
-      const response = {
-        current_feedback: specificFeedback,
-        all_feedback: feedbackResults
-      };
-
-      console.log('Sending response with current feedback and all user feedback');
-      res.json(response);
+    res.json(results[0]);
+  } catch (err) {
+    console.error('Error fetching feedback by tracking key:', err);
+    res.status(500).json({ 
+      message: 'Error fetching feedback',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
+  }
+};
+
+exports.getAllAssignedFeedbacks = (req, res) => {
+  const sql = `
+    SELECT 
+      fa.id as assignment_id,
+      f.id as feedback_id,
+      f.subject,
+      f.message,
+      f.category,
+      f.status,
+      f.file,
+      f.tracking_key,
+      f.pr_number,
+      f.created_at,
+      fa.assigned_at,
+      u.name as user_name,
+      e.name as employee_name
+    FROM feedback_assignments fa
+    JOIN feedback f ON fa.feedback_id = f.id
+    JOIN users u ON f.user_id = u.id
+    JOIN users e ON fa.employee_id = e.id
+    ORDER BY fa.assigned_at DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching all assigned feedbacks:", err);
+      return res.status(500).send("Error fetching assigned feedbacks");
+    }
+    console.log('Found assigned feedbacks:', results);
+    res.json(results);
   });
 };

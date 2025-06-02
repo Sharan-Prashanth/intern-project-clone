@@ -62,6 +62,48 @@ function EmployeeDashboard() {
     }
   };
 
+  const renderAssignmentDetails = (assignment) => (
+    <div className="assignment-details">
+      <div className="assignment-header">
+        <h3>{assignment.subject}</h3>
+        <span className={`category ${assignment.category}`}>
+          {assignment.category}
+        </span>
+      </div>
+      <div className="assignment-content">
+        <p><strong>From:</strong> {assignment.user_name}</p>
+        <p><strong>Message:</strong> {assignment.message}</p>
+        <p><strong>Status:</strong> <span className={`status ${assignment.status.toLowerCase()}`}>{assignment.status}</span></p>
+        <p><strong>Tracking Key:</strong> {assignment.tracking_key}</p>
+        <p><strong>PR Number:</strong> {assignment.pr_number}</p>
+        {assignment.file && (
+          <div className="file-attachment">
+            <strong>Attachment:</strong>
+            <a 
+              href={`http://localhost:5000/uploads/${assignment.file}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="file-link"
+            >
+              <i className="fas fa-paperclip"></i> View File
+            </a>
+          </div>
+        )}
+        <p><strong>Assigned On:</strong> {new Date(assignment.assigned_at).toLocaleString()}</p>
+        
+        {assignment.employee_reply && (
+          <div className="response-info">
+            <p><strong>Your Response:</strong> {assignment.employee_reply}</p>
+            <p><strong>Response Status:</strong> <span className={`status ${assignment.response_status?.toLowerCase()}`}>{assignment.response_status}</span></p>
+            {assignment.hod_comment && (
+              <p><strong>HOD Comment:</strong> {assignment.hod_comment}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return <div className="loading">Loading assignments...</div>;
   }
@@ -85,47 +127,27 @@ function EmployeeDashboard() {
         ) : (
           assignments.map(assignment => (
             <div key={assignment.assignment_id} className="assignment-card">
-              <div className="assignment-header">
-                <h3>{assignment.subject}</h3>
-                <span className={`category ${assignment.category}`}>
-                  {assignment.category}
-                </span>
-              </div>
-              <div className="assignment-details">
-                <p><strong>From:</strong> {assignment.user_name}</p>
-                <p><strong>Message:</strong> {assignment.message}</p>
-                <p><strong>Tracking Key:</strong> {assignment.tracking_key}</p>
-                {assignment.file && (
-                  <p>
-                    <strong>Attachment:</strong>{' '}
-                    <a 
-                      href={`http://localhost:5000/uploads/${assignment.file}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                    >
-                      View File
-                    </a>
-                  </p>
-                )}
-                <p><strong>Assigned On:</strong> {new Date(assignment.created_at).toLocaleString()}</p>
-              </div>
-              <div className="response-section">
-                <textarea
-                  value={replies[assignment.assignment_id] || ''}
-                  onChange={e => setReplies(prev => ({
-                    ...prev,
-                    [assignment.assignment_id]: e.target.value
-                  }))}
-                  placeholder="Enter your response..."
-                  className="response-input"
-                />
-                <button 
-                  onClick={() => handleSubmit(assignment.assignment_id)}
-                  className="submit-button"
-                >
-                  Submit Response
-                </button>
-              </div>
+              {renderAssignmentDetails(assignment)}
+              {!assignment.employee_reply && (
+                <div className="response-section">
+                  <textarea
+                    value={replies[assignment.assignment_id] || ''}
+                    onChange={e => setReplies(prev => ({
+                      ...prev,
+                      [assignment.assignment_id]: e.target.value
+                    }))}
+                    placeholder="Enter your response..."
+                    className="response-input"
+                  />
+                  <button 
+                    onClick={() => handleSubmit(assignment.assignment_id)}
+                    className="submit-button"
+                    disabled={!replies[assignment.assignment_id]}
+                  >
+                    Submit Response
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
