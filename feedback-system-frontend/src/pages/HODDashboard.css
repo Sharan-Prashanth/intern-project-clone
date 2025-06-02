@@ -23,40 +23,108 @@
 
 .tabs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 10px;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1rem;
 }
 
 .tab {
-  padding: 10px 20px;
+  padding: 0.75rem 1.5rem;
   border: none;
   background: none;
-  font-size: 1.1em;
   color: #666;
+  font-size: 1rem;
   cursor: pointer;
-  position: relative;
-  transition: color 0.3s;
+  border-radius: 4px;
+  transition: all 0.3s ease;
 }
 
 .tab:hover {
-  color: #2196f3;
+  background: #f5f5f5;
+  color: #333;
 }
 
 .tab.active {
-  color: #2196f3;
-  font-weight: 500;
+  background: #007bff;
+  color: white;
 }
 
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -12px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: #2196f3;
+.assigned-feedbacks {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.assigned-feedbacks .feedback-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  transition: transform 0.2s ease;
+}
+
+.assigned-feedbacks .feedback-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.assigned-feedbacks .feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.assigned-feedbacks .feedback-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.assigned-feedbacks .category {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.assigned-feedbacks .feedback-details {
+  color: #666;
+}
+
+.assigned-feedbacks .feedback-details p {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.assigned-feedbacks .feedback-details strong {
+  color: #333;
+  margin-right: 0.5rem;
+}
+
+.assigned-feedbacks .status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.assigned-feedbacks .status.assigned {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.assigned-feedbacks .status.in_progress {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.assigned-feedbacks .status.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
 }
 
 .feedback-list, .pending-responses {

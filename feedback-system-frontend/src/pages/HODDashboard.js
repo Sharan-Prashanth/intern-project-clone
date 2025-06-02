@@ -5,11 +5,11 @@ import './HODDashboard.css';
 function HODDashboard() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [pendingResponses, setPendingResponses] = useState([]);
-  const [employeeId, setEmployeeId] = useState('');
+  const [assignedFeedbacks, setAssignedFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('new'); // 'new' or 'pending'
+  const [activeTab, setActiveTab] = useState('new'); // 'new', 'assigned', or 'responses'
   const [hodComment, setHodComment] = useState({});
 
   useEffect(() => {
@@ -17,6 +17,7 @@ function HODDashboard() {
     setUser(storedUser);
     fetchFeedbacks();
     fetchPendingResponses();
+    fetchAssignedFeedbacks();
   }, []);
 
   const fetchFeedbacks = async () => {
@@ -42,24 +43,35 @@ function HODDashboard() {
     }
   };
 
-  const assignFeedback = async (feedback_id) => {
-    console.log(feedback_id, employeeId);
+  const fetchAssignedFeedbacks = async () => {
     try {
-
-      if (parseInt(employeeId) === 1 || parseInt(employeeId) === 2) {
-
-        await axios.post('http://localhost:5000/api/feedback/assign', {
-        feedback_id,
-        hod_id: user.id,
-        employee_id: parseInt(employeeId),
-      });
-      alert("Feedback assigned successfully!");
-      fetchFeedbacks();
-      }
-      
-      
+      const res = await axios.get('http://localhost:5000/api/feedback/assigned/all');
+      setAssignedFeedbacks(res.data);
     } catch (err) {
+      console.error('Error fetching assigned feedbacks:', err);
+    }
+  };
 
+  const assignFeedback = async (feedback_id, selectedEmployeeId) => {
+    try {
+      if (selectedEmployeeId === 1 || selectedEmployeeId === 2) {
+        await axios.post('http://localhost:5000/api/feedback/assign', {
+          feedback_id,
+          hod_id: user.id,
+          employee_id: selectedEmployeeId,
+        });
+        
+        // Remove the feedback from the unassigned list
+        setFeedbacks(prevFeedbacks => 
+          prevFeedbacks.filter(feedback => feedback.id !== feedback_id)
+        );
+        
+        // Refresh assigned feedbacks
+        fetchAssignedFeedbacks();
+        
+        alert("Feedback assigned successfully!");
+      }
+    } catch (err) {
       alert("Failed to assign feedback. Please try again.");
       console.error('Error assigning feedback:', err);
     }
@@ -91,6 +103,36 @@ function HODDashboard() {
     }
   };
 
+  const renderFeedbackDetails = (feedback) => (
+    <div className="feedback-details">
+      <div className="feedback-header">
+        <h3>{feedback.subject}</h3>
+        <span className={`category ${feedback.category}`}>{feedback.category}</span>
+      </div>
+      <div className="feedback-content">
+        <p><strong>From:</strong> {feedback.user_name}</p>
+        <p><strong>Message:</strong> {feedback.message}</p>
+        <p><strong>Status:</strong> <span className={`status ${feedback.status.toLowerCase()}`}>{feedback.status}</span></p>
+        <p><strong>Tracking Key:</strong> {feedback.tracking_key}</p>
+        <p><strong>PR Number:</strong> {feedback.pr_number}</p>
+        {feedback.file && (
+          <div className="file-attachment">
+            <strong>Attachment:</strong>
+            <a 
+              href={`http://localhost:5000/uploads/${feedback.file}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="file-link"
+            >
+              <i className="fas fa-paperclip"></i> View File
+            </a>
+          </div>
+        )}
+        <p><strong>Submitted:</strong> {new Date(feedback.created_at).toLocaleString()}</p>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
@@ -108,57 +150,65 @@ function HODDashboard() {
         </div>
       </div>
 
-      <div className="tabs">
+      <div className="dashboard-tabs">
         <button 
-          className={`tab ${activeTab === 'new' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'new' ? 'active' : ''}`}
           onClick={() => setActiveTab('new')}
         >
           New Feedbacks
         </button>
         <button 
-          className={`tab ${activeTab === 'pending' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pending')}
+          className={`tab-button ${activeTab === 'assigned' ? 'active' : ''}`}
+          onClick={() => setActiveTab('assigned')}
         >
-          Pending Reviews ({pendingResponses.length})
+          Assigned Feedbacks
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'responses' ? 'active' : ''}`}
+          onClick={() => setActiveTab('responses')}
+        >
+          Pending Responses
         </button>
       </div>
 
       {activeTab === 'new' ? (
         <div className="feedback-list">
           {feedbacks.length === 0 ? (
-            <p className="no-feedbacks">No feedbacks available</p>
+            <p className="no-feedbacks">No new feedbacks available</p>
           ) : (
-            feedbacks.map(f => (
-              <div key={f.id} className="feedback-card">
-                <div className="feedback-header">
-                  <h3>{f.subject}</h3>
-                  <span className={`category ${f.category}`}>{f.category}</span>
-                </div>
-                <div className="feedback-details">
-                  <p><strong>From:</strong> {f.user_name}</p>
-                  <p><strong>Message:</strong> {f.message}</p>
-                  <p><strong>Status:</strong> <span className={`status ${f.status.toLowerCase()}`}>{f.status}</span></p>
-                  <p><strong>Tracking Key:</strong> {f.tracking_key}</p>
-                  {f.file && (
-                    <p><strong>Attachment:</strong> <a href={`http://localhost:5000/uploads/${f.file}`} target="_blank" rel="noopener noreferrer">View File</a></p>
-                  )}
-                  <p><strong>Submitted:</strong> {new Date(f.created_at).toLocaleString()}</p>
-                </div>
+            feedbacks.map(feedback => (
+              <div key={feedback.id} className="feedback-card">
+                {renderFeedbackDetails(feedback)}
                 <div className="assignment-section">
                   <button 
-                    onClick = {() => {assignFeedback(f.id);
-                      setEmployeeId('1');
-                    }}
+                    onClick={() => assignFeedback(feedback.id, 1)}
                     className="assign-button"
-                    >
-                      Assign to 1</button>
+                  >
+                    Assign to 1
+                  </button>
+
                   <button 
-                    onClick = {() => {assignFeedback(f.id);
-                      setEmployeeId('2');
-                    }}
+                    onClick={() => assignFeedback(feedback.id, 2)}
                     className="assign-button"
-                    >
-                      Assign to 2</button>
+                  >
+                    Assign to 2
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : activeTab === 'assigned' ? (
+        <div className="assigned-feedbacks">
+          {assignedFeedbacks.length === 0 ? (
+            <p className="no-feedbacks">No assigned feedbacks</p>
+          ) : (
+            assignedFeedbacks.map(feedback => (
+              <div key={feedback.assignment_id} className="feedback-card">
+                {renderFeedbackDetails(feedback)}
+                <div className="assignment-info">
+                  <p><strong>Assigned To:</strong> {feedback.employee_name}</p>
+                  <p><strong>Assigned On:</strong> {new Date(feedback.assigned_at).toLocaleString()}</p>
                 </div>
               </div>
             ))
@@ -167,28 +217,32 @@ function HODDashboard() {
       ) : (
         <div className="pending-responses">
           {pendingResponses.length === 0 ? (
-            <p className="no-responses">No pending responses to review</p>
+            <p className="no-feedbacks">No pending responses</p>
           ) : (
             pendingResponses.map(response => (
               <div key={response.response_id} className="response-card">
                 <div className="response-header">
                   <h3>{response.subject}</h3>
-                  <span className="employee-name">Assigned to: {response.employee_name}</span>
+                  <span className={`status ${response.status.toLowerCase()}`}>
+                    {response.status}
+                  </span>
                 </div>
-                <div className="response-details">
+                <div className="response-content">
+                  <p><strong>From User:</strong> {response.user_name}</p>
                   <p><strong>Original Message:</strong> {response.message}</p>
                   <p><strong>Employee Response:</strong> {response.employee_reply}</p>
-                  <p><strong>Submitted:</strong> {new Date(response.created_at).toLocaleString()}</p>
+                  <p><strong>Responded By:</strong> {response.employee_name}</p>
+                  <p><strong>Response Date:</strong> {new Date(response.created_at).toLocaleString()}</p>
                 </div>
                 <div className="review-section">
                   <textarea
-                    placeholder="Enter your comment (required for approval)"
                     value={hodComment[response.response_id] || ''}
-                    onChange={e => setHodComment(prev => ({
+                    onChange={(e) => setHodComment(prev => ({
                       ...prev,
                       [response.response_id]: e.target.value
                     }))}
-                    className="hod-comment-input"
+                    placeholder="Add your comment..."
+                    className="hod-comment"
                   />
                   <div className="review-buttons">
                     <button 

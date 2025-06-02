@@ -14,11 +14,28 @@ function UserStatusPage() {
     return status.toLowerCase().replace(/\s+/g, '_');
   };
 
+ const filethrough = async (filename) => {
+  try {
+    const response = await axios.get(`http://localhost:5000/uploads/${filename.file}`, {
+      responseType: 'blob' // Get it as binary data
+    });
+
+    if (response.status === 200) {
+      const fileUrl = URL.createObjectURL(new Blob([response.data]));
+      window.open(fileUrl, '_blank'); // Open in a new tab
+      URL.revokeObjectURL(fileUrl); // Optional: cleanup after use
+    }
+  } catch (error) {
+    console.error('Unable to view file:', error);
+  }
+};
+
+
   const fetchUserFromTrackingKey = async (key) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`http://localhost:5000/api/feedback/tracking/7801329998`, {
+      const response = await axios.get(`http://localhost:5000/api/feedback/tracking/${key}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -76,6 +93,9 @@ function UserStatusPage() {
       <div className="detail-item">
         <strong>Tracking Key:</strong> {feedback.tracking_key}
       </div>
+      <div className="detail-item">
+        <strong>PR Number:</strong> {feedback.pr_number}
+      </div>
 
       {feedback.employee_name && (
         <div className="detail-item">
@@ -105,9 +125,9 @@ function UserStatusPage() {
       {feedback.file && (
         <div className="detail-item">
           <strong>Attachment:</strong>{' '}
-          <a href={`http://localhost:5000/uploads/${feedback.file}`} target="_blank" rel="noopener noreferrer">
-            View File
-          </a>
+          <button className="file-button" onClick={() => filethrough(feedback.file)}>
+            Documents Attached
+          </button>
         </div>
       )}
     </div>
