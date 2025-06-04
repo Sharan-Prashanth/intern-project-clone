@@ -20,19 +20,25 @@ function FeedbackForm() {
   };
 
   const handleSubmit = async e => {
-    e.preventDefault();
-    const data = new FormData();
-    for (const key in formData) {
-      data.append(key, formData[key]);
-    }
+  e.preventDefault();
+  const data = new FormData();
 
-    try {
-      const res = await axios.post('http://localhost:5000/api/feedback', data);
-      alert("Feedback submitted successfully!");
-    } catch (err) {
-      alert("Error submitting feedback");
-    }
-  };
+  // Generate a pr_number on the fly
+  const pr_number = `PR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  
+  for (const key in formData) {
+    data.append(key, formData[key]);
+  }
+  data.append("pr_number", pr_number); // 👈 Append it to the FormData
+
+  try {
+    const res = await axios.post('http://localhost:5000/api/feedback', data);
+    alert("Feedback submitted successfully!");
+  } catch (err) {
+    alert("Error submitting feedback");
+  }
+};
+
 
   return (
     <form onSubmit={handleSubmit}>

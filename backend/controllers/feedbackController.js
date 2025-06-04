@@ -31,7 +31,7 @@ exports.submitFeedback = async (req, res) => {
       const createUserSql = 'INSERT INTO users (username, email, password, name, user_type) VALUES (?, ?, ?, ?, ?)';
       const username = email.split('@')[0];
       const defaultPassword = 'password123';
-      
+
       const [result] = await db.promise().query(createUserSql, [username, email, defaultPassword, name, 'employee']);
       userId = result.insertId;
       console.log('Created new user with ID:', userId);
@@ -40,24 +40,25 @@ exports.submitFeedback = async (req, res) => {
       console.log('Using existing user ID:', userId);
     }
 
-    // Insert feedback with pr_number
-    const sql = `INSERT INTO feedback (user_id, subject, message, category, file, tracking_key, status, pr_number) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `
+  INSERT INTO feedback (user_id, subject, message, category, file, tracking_key, status)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
 
     const [feedbackResult] = await db.promise().query(sql, [
-      userId, 
-      subject, 
-      message, 
-      category, 
-      file, 
-      tracking_key, 
-      'Submitted',
-      prNumber || null
+      userId,
+      subject,
+      message,
+      category,
+      file,
+      tracking_key,
+      'Submitted'
     ]);
 
+
     console.log('Feedback inserted with ID:', feedbackResult.insertId);
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       id: feedbackResult.insertId,
       tracking_key: tracking_key,
       message: 'Feedback submitted successfully'
@@ -65,7 +66,7 @@ exports.submitFeedback = async (req, res) => {
 
   } catch (err) {
     console.error('Error in submitFeedback:', err);
-    
+
     // If there was a file uploaded but the operation failed, delete the file
     if (req.file) {
       const filePath = path.join(__dirname, '../uploads', req.file.filename);
@@ -74,7 +75,7 @@ exports.submitFeedback = async (req, res) => {
       });
     }
 
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error submitting feedback',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -94,7 +95,7 @@ exports.getAllFeedbacks = async (req, res) => {
     res.json(results);
   } catch (err) {
     console.error('Failed to fetch feedbacks:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error fetching feedbacks',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -103,7 +104,7 @@ exports.getAllFeedbacks = async (req, res) => {
 
 exports.assignToEmployee = (req, res) => {
   const { feedback_id, hod_id, employee_id } = req.body;
-  
+
   console.log('Assigning feedback:', { feedback_id, hod_id, employee_id });
 
   const sql = `INSERT INTO feedback_assignments (feedback_id, hod_id, employee_id) 
@@ -127,7 +128,7 @@ exports.assignToEmployee = (req, res) => {
           return res.status(500).send("Failed to update feedback status");
         }
         console.log('Feedback status updated to Assigned');
-        res.json({ 
+        res.json({
           message: "Feedback assigned successfully",
           assignment_id: result.insertId
         });
@@ -138,7 +139,7 @@ exports.assignToEmployee = (req, res) => {
 
 exports.getAssignmentsForEmployee = (req, res) => {
   const { employee_id } = req.params;
-  
+
   console.log('Fetching assignments for employee:', employee_id);
 
   const sql = `
@@ -178,7 +179,7 @@ exports.getAssignmentsForEmployee = (req, res) => {
 
 exports.submitEmployeeResponse = (req, res) => {
   const { assignment_id, employee_reply } = req.body;
-  
+
   console.log('Submitting employee response:', { assignment_id, employee_reply });
 
   // First, check if a response already exists
@@ -219,7 +220,7 @@ exports.submitEmployeeResponse = (req, res) => {
           return res.status(500).send("Failed to update feedback status");
         }
         console.log('Feedback status updated to Under Review');
-        res.json({ 
+        res.json({
           message: "Response submitted successfully and sent for HOD review",
           response_id: result.insertId
         });
@@ -284,9 +285,9 @@ exports.hodApproveResponse = (req, res) => {
       console.error("Error reviewing response", err);
       return res.status(500).send("Error reviewing response");
     }
-    res.json({ 
-      message: status === 'Approved' ? 
-        "Response approved and sent to user" : 
+    res.json({
+      message: status === 'Approved' ?
+        "Response approved and sent to user" :
         "Response rejected and sent back to employee"
     });
   });
@@ -383,7 +384,7 @@ exports.getFeedbackByTrackingKey = async (req, res) => {
     `;
 
     const [results] = await db.promise().query(sql, [tracking_key]);
-    
+
     if (results.length === 0) {
       return res.status(404).json({ message: 'Feedback not found' });
     }
@@ -391,7 +392,7 @@ exports.getFeedbackByTrackingKey = async (req, res) => {
     res.json(results[0]);
   } catch (err) {
     console.error('Error fetching feedback by tracking key:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error fetching feedback',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './UserForm.css';
-import Cookies from 'js-cookie';
+
 
 const UserForm = () => {
   const [formData, setFormData] = useState({

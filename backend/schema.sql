@@ -30,6 +30,7 @@ CREATE TABLE feedback (
     status ENUM('Submitted', 'Assigned', 'Poru pa thambi...', 'Under Review', 'Completed') DEFAULT 'Submitted',
     tracking_key VARCHAR(10) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    pr_number VARCHAR(255) DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -63,7 +64,4 @@ INSERT INTO users (username, email, password, name, user_type) VALUES
 
 INSERT INTO users (username, email, password, name, user_type) VALUES
 ('emp1', 'emp1@cpcl.in', 'emp123', 'Employee One', 'employee'),
-('emp2', 'emp2@cpcl.in', 'emp123', 'Employee Two', 'employee');
-
-
-UPDATE feedback_assignments SET employee_id = 2 WHERE employee_id = 1; 
+('emp2', 'emp2@cpcl.in', 'emp123', 'Employee Two', 'employee'); 
