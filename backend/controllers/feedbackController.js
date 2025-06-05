@@ -88,6 +88,7 @@ exports.getAllFeedbacks = async (req, res) => {
       SELECT f.*, u.name as user_name 
       FROM feedback f 
       JOIN users u ON f.user_id = u.id 
+      WHERE f.status != 'Assigned'
       ORDER BY f.created_at DESC
     `;
 
@@ -137,44 +138,94 @@ exports.assignToEmployee = (req, res) => {
   });
 };
 
-exports.getAssignmentsForEmployee = (req, res) => {
-  const { employee_id } = req.params;
-
-  console.log('Fetching assignments for employee:', employee_id);
-
-  const sql = `
-    SELECT 
-      fa.id as assignment_id,
-      f.id as feedback_id,
-      f.subject,
-      f.message,
-      f.category,
-      f.file,
-      f.tracking_key,
-      f.pr_number,
-      f.status,
-      u.name as user_name,
-      f.created_at,
-      fa.assigned_at,
-      fr.employee_reply,
-      fr.status as response_status,
-      fr.hod_comment
-    FROM feedback_assignments fa
-    JOIN feedback f ON fa.feedback_id = f.id
-    JOIN users u ON f.user_id = u.id
-    LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
-    WHERE fa.employee_id = ?
-    ORDER BY fa.assigned_at DESC
-  `;
-
-  db.query(sql, [employee_id], (err, results) => {
-    if (err) {
-      console.error("Error fetching assignments", err);
-      return res.status(500).send("Error fetching assignments");
+exports.getAssignmentsForEmployee = async (req, res) => {
+  try {
+    const { employee_id } = req.params;
+    
+    if (!employee_id) {
+      console.log('Employee ID is missing');
+      return res.status(400).json({ message: 'Employee ID is required' });
     }
-    console.log('Found assignments:', results);
+
+    console.log('Fetching assignments for employee:', employee_id);
+
+    // First verify if the employee exists
+    const checkEmployeeSql = 'SELECT id FROM users WHERE id = ? AND user_type = "employee"';
+    console.log('Checking employee with SQL:', checkEmployeeSql, [employee_id]);
+    
+    const [employeeResults] = await db.promise().query(checkEmployeeSql, [employee_id]);
+    console.log('Employee check results:', employeeResults);
+
+    if (employeeResults.length === 0) {
+      console.log('Employee not found:', employee_id);
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // First check if the pr_number column exists
+    const checkColumnSql = `
+      SELECT COUNT(*) as column_exists 
+      FROM information_schema.columns 
+      WHERE table_schema = 'feedback_system' 
+      AND table_name = 'feedback' 
+      AND column_name = 'pr_number'
+    `;
+    
+    const [columnCheck] = await db.promise().query(checkColumnSql);
+    console.log('Column check results:', columnCheck);
+
+    const sql = `
+      SELECT 
+        fa.id as assignment_id,
+        f.id as feedback_id,
+        f.subject,
+        f.message,
+        f.category,
+        f.file,
+        f.tracking_key,
+        ${columnCheck[0].column_exists ? 'COALESCE(f.pr_number, "") as pr_number' : '"" as pr_number'},
+        f.status,
+        u.name as user_name,
+        f.created_at,
+        fa.assigned_at,
+        fr.employee_reply,
+        fr.status as response_status,
+        fr.hod_comment
+      FROM feedback_assignments fa
+      JOIN feedback f ON fa.feedback_id = f.id
+      JOIN users u ON f.user_id = u.id
+      LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
+      WHERE fa.employee_id = ?
+      AND (fr.status IS NULL OR fr.status != 'Rejected')
+      AND f.status NOT IN ('Completed', 'Under Review')
+      ORDER BY fa.assigned_at DESC
+    `;
+
+    console.log('Executing SQL query for employee:', employee_id);
+    console.log('SQL:', sql);
+    
+    const [results] = await db.promise().query(sql, [employee_id]);
+    console.log('Query results:', results);
+    
+    if (!results || results.length === 0) {
+      console.log('No assignments found for employee:', employee_id);
+      return res.json([]); // Return empty array instead of 404
+    }
+
     res.json(results);
-  });
+  } catch (err) {
+    console.error("Error in getAssignmentsForEmployee:", err);
+    console.error("Error details:", {
+      message: err.message,
+      code: err.code,
+      sqlMessage: err.sqlMessage,
+      sqlState: err.sqlState,
+      stack: err.stack
+    });
+    res.status(500).json({ 
+      message: 'Error fetching assignments',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
 };
 
 exports.submitEmployeeResponse = (req, res) => {
@@ -251,6 +302,7 @@ exports.getPendingResponses = (req, res) => {
     JOIN users e ON fa.employee_id = e.id
     JOIN users h ON fa.hod_id = h.id
     WHERE fr.status = 'Pending'
+    AND f.status != 'In Progress'
     ORDER BY fr.created_at DESC
   `;
 
@@ -400,6 +452,7 @@ exports.getFeedbackByTrackingKey = async (req, res) => {
 };
 
 exports.getAllAssignedFeedbacks = (req, res) => {
+  console.log('Fetching all assigned feedbacks...');
   const sql = `
     SELECT 
       fa.id as assignment_id,
@@ -422,9 +475,16 @@ exports.getAllAssignedFeedbacks = (req, res) => {
     ORDER BY fa.assigned_at DESC
   `;
 
+  console.log('Executing SQL query:', sql);
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching all assigned feedbacks:", err);
+      console.error("Error details:", {
+        message: err.message,
+        code: err.code,
+        sqlMessage: err.sqlMessage,
+        sqlState: err.sqlState
+      });
       return res.status(500).send("Error fetching assigned feedbacks");
     }
     console.log('Found assigned feedbacks:', results);

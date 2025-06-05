@@ -11,21 +11,48 @@ function EmployeeDashboard() {
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
-    setUser(storedUser);
-    if (storedUser) {
-      fetchAssignments(storedUser.id);
+    if (!storedUser) {
+      setError('User not found. Please login again.');
+      setLoading(false);
+      return;
     }
+    setUser(storedUser);
+    fetchAssignments(storedUser.id);
   }, []);
 
   const fetchAssignments = async (employeeId) => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/feedback/assigned/${employeeId}`);
-      setAssignments(res.data);
       setError(null);
+      
+      if (!employeeId) {
+        throw new Error('Employee ID is required');
+      }
+
+      console.log('Fetching assignments for employee:', employeeId);
+      
+      const response = await axios.get(`http://localhost:5000/api/feedback/assigned/${employeeId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log('Assignments response:', response.data);
+      
+      if (Array.isArray(response.data)) {
+        setAssignments(response.data);
+      } else {
+        console.error('Invalid response format:', response.data);
+        setError('Invalid response format from server');
+      }
     } catch (err) {
-      setError('Failed to fetch assignments');
       console.error('Error fetching assignments:', err);
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Failed to fetch assignments. Please try again later.'
+      );
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -38,27 +65,33 @@ function EmployeeDashboard() {
     }
 
     try {
-      await axios.post('http://localhost:5000/api/feedback/response', {
+      const response = await axios.post('http://localhost:5000/api/feedback/response', {
         assignment_id,
         employee_reply: replies[assignment_id],
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
       
-      // Remove the feedback from the assignments list immediately
-      setAssignments(prevAssignments => 
-        prevAssignments.filter(assignment => assignment.assignment_id !== assignment_id)
-      );
-      
-      // Clear the reply for this assignment
-      setReplies(prev => {
-        const newReplies = { ...prev };
-        delete newReplies[assignment_id];
-        return newReplies;
-      });
+      if (response.data) {
+        // Remove the feedback from the assignments list
+        setAssignments(prevAssignments => 
+          prevAssignments.filter(assignment => assignment.assignment_id !== assignment_id)
+        );
+        
+        // Clear the reply for this assignment
+        setReplies(prev => {
+          const newReplies = { ...prev };
+          delete newReplies[assignment_id];
+          return newReplies;
+        });
 
-      alert("Response submitted successfully!");
+        alert("Response submitted successfully!");
+      }
     } catch (err) {
-      alert("Failed to submit response. Please try again.");
       console.error('Error submitting response:', err);
+      alert(err.response?.data?.message || "Failed to submit response. Please try again.");
     }
   };
 

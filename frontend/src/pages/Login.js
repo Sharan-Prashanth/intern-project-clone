@@ -44,11 +44,18 @@ const Login = () => {
           setError('Invalid HOD credentials');
         }
       } else if (userType === 'employee') {
-        if ((username === 'emp1' && password === 'emp123') || 
-            (username === 'emp2' && password === 'emp123')) {
+        if (username === 'emp1' && password === 'emp123') {
           const user = {
-            id: username === 'emp1' ? 2 : 3,
-            name: username === 'emp1' ? 'Employee One' : 'Employee Two',
+            id: 2, // This matches the ID in schema.sql
+            name: 'Employee One',
+            type: 'employee'
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          navigate('/employee-dashboard');
+        } else if (username === 'emp2' && password === 'emp123') {
+          const user = {
+            id: 3, // This matches the ID in schema.sql
+            name: 'Employee Two',
             type: 'employee'
           };
           localStorage.setItem('user', JSON.stringify(user));

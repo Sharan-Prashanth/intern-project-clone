@@ -155,7 +155,7 @@ function HODDashboard() {
       const res = await axios.get(`http://localhost:5000/api/feedback/report?start=${reportStart}&end=${reportEnd}`);
       setReportData(res.data.reports);
       console.log('Report Response:', res.data.reports);
-      
+
       setReportSummary(res.data.summary);
     } catch (err) {
       setReportError('Failed to fetch report data.');
@@ -177,7 +177,7 @@ function HODDashboard() {
       <div className="dashboard-header">
         <h2>HOD Dashboard</h2>
         <div className="user-info">
-          Welcome, {user?.name}
+          Welcome, HOD
         </div>
       </div>
 
@@ -187,6 +187,11 @@ function HODDashboard() {
           onClick={() => setActiveTab('new')}
         >
           New Feedbacks
+        </button>
+        <button
+        className={`tab-button ${activeTab === 'assigned' ? 'active' : ''}`}
+        onClick = {() => setActiveTab('assigned')}>
+          Assigned Feedbacks
         </button>
         <button
           className={`tab-button ${activeTab === 'responses' ? 'active' : ''}`}
@@ -200,6 +205,7 @@ function HODDashboard() {
         >
           Report
         </button>
+
       </div>
 
       {activeTab === 'report' ? (
@@ -268,7 +274,23 @@ function HODDashboard() {
             </table>
           </div>
         </div>
-      ) : activeTab === 'new' ? (
+      ): activeTab === 'assigned' ? (
+        <div className="assigned-feedbacks">
+          {assignedFeedbacks.length === 0 ? (
+            <p className="no-feedbacks">No assigned feedbacks</p>
+          ) : (
+            assignedFeedbacks.map(feedback => (
+              <div key={feedback.assignment_id} className="feedback-card">
+                {renderFeedbackDetails(feedback)}
+                <div className="assignment-info">
+                  <p><strong>Assigned To:</strong> {feedback.employee_name}</p>
+                  <p><strong>Assigned On:</strong> {new Date(feedback.assigned_at).toLocaleString()}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )  : activeTab === 'new' ? (
         <div className="feedback-list">
           {feedbacks.length === 0 ? (
             <p className="no-feedbacks">No new feedbacks available</p>
@@ -304,7 +326,7 @@ function HODDashboard() {
               <div key={response.response_id} className="response-card">
                 <div className="response-header">
                   <h3>{response.subject}</h3>
-                  <span className={`status ${response.status.toLowerCase()}`}>
+                  <span className={`status ${response.status}`}>
                     {response.status}
                   </span>
                 </div>
@@ -314,6 +336,7 @@ function HODDashboard() {
                   <p><strong>Employee Response:</strong> {response.employee_reply}</p>
                   <p><strong>Responded By:</strong> {response.employee_name}</p>
                   <p><strong>Response Date:</strong> {new Date(response.created_at).toLocaleString()}</p>
+                  <p><strong>Employee Id</strong> {response.employee_id}</p>
                 </div>
                 <div className="review-section">
                   <textarea
@@ -326,13 +349,13 @@ function HODDashboard() {
                     className="hod-comment"
                   />
                   <div className="review-buttons">
-                    <button
+                    <button 
                       onClick={() => handleReview(response.response_id, 'Approved')}
                       className="approve-button"
                     >
                       Approve
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleReview(response.response_id, 'Rejected')}
                       className="reject-button"
                     >
@@ -341,6 +364,7 @@ function HODDashboard() {
                   </div>
                 </div>
               </div>
+
             ))
           )}
         </div>

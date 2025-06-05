@@ -106,11 +106,18 @@ const UserForm = () => {
           setError('Invalid HOD credentials and only Officials are allowed to Login');
         }
       } else if (loginData.userType === 'employee') {
-        if ((loginData.username === 'emp1' && loginData.password === 'emp123') || 
-            (loginData.username === 'emp2' && loginData.password === 'emp123')) {
+        if (loginData.username === 'emp1' && loginData.password === 'emp123') {
           const user = {
-            id: loginData.username === 'emp1' ? 1 :2,
-            name: loginData.username === 'emp1' ? 'Employee One' : 'Employee Two',
+            id: 2, // This matches the ID in schema.sql
+            name: 'Employee One',
+            type: 'employee'
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          navigate('/employee-dashboard');
+        } else if (loginData.username === 'emp2' && loginData.password === 'emp123') {
+          const user = {
+            id: 3, // This matches the ID in schema.sql
+            name: 'Employee Two',
             type: 'employee'
           };
           localStorage.setItem('user', JSON.stringify(user));
