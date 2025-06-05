@@ -68,6 +68,8 @@ function HODDashboard() {
           hod_id: user.id,
           employee_id: selectedEmployeeId,
         });
+      
+
 
         // Remove the feedback from the unassigned list
         setFeedbacks(prevFeedbacks =>
@@ -152,6 +154,8 @@ function HODDashboard() {
     try {
       const res = await axios.get(`http://localhost:5000/api/feedback/report?start=${reportStart}&end=${reportEnd}`);
       setReportData(res.data.reports);
+      console.log('Report Response:', res.data.reports);
+      
       setReportSummary(res.data.summary);
     } catch (err) {
       setReportError('Failed to fetch report data.');
@@ -243,6 +247,7 @@ function HODDashboard() {
                   <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>User</th>
                   <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Date</th>
                   <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Status</th>
+                  <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Employee Assigned</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,6 +260,7 @@ function HODDashboard() {
                       <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.user_name}</td>
                       <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Date(row.created_at).toLocaleString()}</td>
                       <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.status}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.employee_id || 'Not Assigned'}</td>
                     </tr>
                   ))
                 )}

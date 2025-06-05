@@ -440,15 +440,23 @@ exports.getReportByDateRange = async (req, res) => {
     }
     // Fetch feedbacks in the date range
     const sql = `
-      SELECT f.id, f.subject, f.status, f.created_at, u.name as user_name
+      SELECT 
+      f.id, 
+      f.subject, 
+      f.status, 
+      f.created_at, 
+      u.name AS user_name,
+      fa.employee_id
       FROM feedback f
       JOIN users u ON f.user_id = u.id
+      LEFT JOIN feedback_assignments fa ON fa.feedback_id = f.id
       WHERE DATE(f.created_at) BETWEEN ? AND ?
-      ORDER BY f.created_at DESC
+      ORDER BY f.created_at DESC;
+
     `;
     const [results] = await db.promise().query(sql, [start, end]);
 
-    // Status summary
+    // status  summary
     const summary = {
       total: results.length,
       resolved: results.filter(f => f.status === 'Completed' || f.status === 'Resolved').length,
