@@ -31,6 +31,7 @@ CREATE TABLE feedback (
     tracking_key VARCHAR(10) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     pr_number VARCHAR(255) DEFAULT NULL,
+    
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

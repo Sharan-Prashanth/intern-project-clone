@@ -25,7 +25,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
@@ -47,6 +47,7 @@ router.get('/assigned/all', asyncHandler(feedbackController.getAllAssignedFeedba
 router.get('/responses/pending', asyncHandler(feedbackController.getPendingResponses));
 router.get('/check-emp1', asyncHandler(feedbackController.checkEmployeeDetails));
 router.get('/check-all-employees', asyncHandler(feedbackController.checkAllEmployeeAssignments));
+router.get('/report', asyncHandler(feedbackController.getReportByDateRange));
 
 router.post('/', upload.single('file'), asyncHandler(feedbackController.submitFeedback));
 router.post('/assign', asyncHandler(feedbackController.assignToEmployee));

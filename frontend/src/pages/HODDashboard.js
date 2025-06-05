@@ -9,8 +9,16 @@ function HODDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('new'); // 'new', 'assigned', or 'responses'
+  const [activeTab, setActiveTab] = useState('new'); // 'new', 'assigned', 'responses', 'report'
   const [hodComment, setHodComment] = useState({});
+
+  // Report state
+  const [reportStart, setReportStart] = useState('');
+  const [reportEnd, setReportEnd] = useState('');
+  const [reportData, setReportData] = useState([]);
+  const [reportSummary, setReportSummary] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
@@ -60,15 +68,15 @@ function HODDashboard() {
           hod_id: user.id,
           employee_id: selectedEmployeeId,
         });
-        
+
         // Remove the feedback from the unassigned list
-        setFeedbacks(prevFeedbacks => 
+        setFeedbacks(prevFeedbacks =>
           prevFeedbacks.filter(feedback => feedback.id !== feedback_id)
         );
-        
+
         // Refresh assigned feedbacks
         fetchAssignedFeedbacks();
-        
+
         alert("Feedback assigned successfully!");
       }
     } catch (err) {
@@ -118,9 +126,9 @@ function HODDashboard() {
         {feedback.file && (
           <div className="file-attachment">
             <strong>Attachment:</strong>
-            <a 
-              href={`http://localhost:5000/uploads/${feedback.file}`} 
-              target="_blank" 
+            <a
+              href={`http://localhost:5000/uploads/${feedback.file}`}
+              target="_blank"
               rel="noopener noreferrer"
               className="file-link"
             >
@@ -132,6 +140,25 @@ function HODDashboard() {
       </div>
     </div>
   );
+
+  // Report fetch function
+  const fetchReport = async () => {
+    if (!reportStart || !reportEnd) {
+      setReportError('Please select both start and end dates.');
+      return;
+    }
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const res = await axios.get(`http://localhost:5000/api/feedback/report?start=${reportStart}&end=${reportEnd}`);
+      setReportData(res.data.reports);
+      setReportSummary(res.data.summary);
+    } catch (err) {
+      setReportError('Failed to fetch report data.');
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -151,27 +178,91 @@ function HODDashboard() {
       </div>
 
       <div className="dashboard-tabs">
-        <button 
+        <button
           className={`tab-button ${activeTab === 'new' ? 'active' : ''}`}
           onClick={() => setActiveTab('new')}
         >
           New Feedbacks
         </button>
-        <button 
-          className={`tab-button ${activeTab === 'assigned' ? 'active' : ''}`}
-          onClick={() => setActiveTab('assigned')}
-        >
-          Assigned Feedbacks
-        </button>
-        <button 
+        <button
           className={`tab-button ${activeTab === 'responses' ? 'active' : ''}`}
           onClick={() => setActiveTab('responses')}
         >
           Pending Responses
         </button>
+        <button
+          className={`tab-button ${activeTab === 'report' ? 'active' : ''}`}
+          onClick={() => setActiveTab('report')}
+        >
+          Report
+        </button>
       </div>
 
-      {activeTab === 'new' ? (
+      {activeTab === 'report' ? (
+        <div className="report-section">
+          <div className="report-filters">
+            <label>
+              Start Date:
+              <input
+                type="date"
+                value={reportStart}
+                onChange={e => setReportStart(e.target.value)}
+              />
+            </label>
+            <label style={{ marginLeft: '1rem' }}>
+              End Date:
+              <input
+                type="date"
+                value={reportEnd}
+                onChange={e => setReportEnd(e.target.value)}
+              />
+            </label>
+            <button
+              className="assign-button"
+              style={{ marginLeft: '1rem' }}
+              onClick={fetchReport}
+              disabled={reportLoading}
+            >
+              {reportLoading ? 'Loading...' : 'Fetch Report'}
+            </button>
+          </div>
+          {reportError && <div className="error">{reportError}</div>}
+          {reportSummary && (
+            <div className="report-summary" style={{ margin: '1.5rem 0', display: 'flex', gap: '2rem' }}>
+              <div><strong>Total:</strong> {reportSummary.total}</div>
+              <div><strong>Resolved:</strong> {reportSummary.resolved}</div>
+              <div><strong>In Progress:</strong> {reportSummary.in_progress}</div>
+              <div><strong>Pending:</strong> {reportSummary.pending}</div>
+            </div>
+          )}
+          <div className="report-table-container" style={{ overflowX: 'auto' }}>
+            <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+              <thead>
+                <tr>
+                  <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Query ID</th>
+                  <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>User</th>
+                  <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Date</th>
+                  <th style={{ borderBottom: '1px solid #ccc', padding: '8px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.length === 0 ? (
+                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '1rem' }}>No reports found for selected range.</td></tr>
+                ) : (
+                  reportData.map(row => (
+                    <tr key={row.id}>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.id}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.user_name}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Date(row.created_at).toLocaleString()}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{row.status}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'new' ? (
         <div className="feedback-list">
           {feedbacks.length === 0 ? (
             <p className="no-feedbacks">No new feedbacks available</p>
@@ -180,35 +271,19 @@ function HODDashboard() {
               <div key={feedback.id} className="feedback-card">
                 {renderFeedbackDetails(feedback)}
                 <div className="assignment-section">
-                  <button 
+                  <button
                     onClick={() => assignFeedback(feedback.id, 1)}
                     className="assign-button"
                   >
                     Assign to 1
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => assignFeedback(feedback.id, 2)}
                     className="assign-button"
                   >
                     Assign to 2
                   </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      ) : activeTab === 'assigned' ? (
-        <div className="assigned-feedbacks">
-          {assignedFeedbacks.length === 0 ? (
-            <p className="no-feedbacks">No assigned feedbacks</p>
-          ) : (
-            assignedFeedbacks.map(feedback => (
-              <div key={feedback.assignment_id} className="feedback-card">
-                {renderFeedbackDetails(feedback)}
-                <div className="assignment-info">
-                  <p><strong>Assigned To:</strong> {feedback.employee_name}</p>
-                  <p><strong>Assigned On:</strong> {new Date(feedback.assigned_at).toLocaleString()}</p>
                 </div>
               </div>
             ))
@@ -245,13 +320,13 @@ function HODDashboard() {
                     className="hod-comment"
                   />
                   <div className="review-buttons">
-                    <button 
+                    <button
                       onClick={() => handleReview(response.response_id, 'Approved')}
                       className="approve-button"
                     >
                       Approve
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleReview(response.response_id, 'Rejected')}
                       className="reject-button"
                     >

@@ -431,3 +431,37 @@ exports.getAllAssignedFeedbacks = (req, res) => {
     res.json(results);
   });
 };
+
+exports.getReportByDateRange = async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ message: 'Start and end dates are required' });
+    }
+    // Fetch feedbacks in the date range
+    const sql = `
+      SELECT f.id, f.subject, f.status, f.created_at, u.name as user_name
+      FROM feedback f
+      JOIN users u ON f.user_id = u.id
+      WHERE DATE(f.created_at) BETWEEN ? AND ?
+      ORDER BY f.created_at DESC
+    `;
+    const [results] = await db.promise().query(sql, [start, end]);
+
+    // Status summary
+    const summary = {
+      total: results.length,
+      resolved: results.filter(f => f.status === 'Completed' || f.status === 'Resolved').length,
+      in_progress: results.filter(f => f.status === 'In Progress' || f.status === 'Under Review').length,
+      pending: results.filter(f => f.status === 'Submitted' || f.status === 'Assigned').length,
+    };
+
+    res.json({
+      summary,
+      reports: results
+    });
+  } catch (err) {
+    console.error('Error fetching report:', err);
+    res.status(500).json({ message: 'Error fetching report', error: err.message });
+  }
+};
