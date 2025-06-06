@@ -47,7 +47,9 @@ npm install
 
 #Configure your database settings in config/db.js
 
-npm start
+node init-db.js  #To initialise your Database.
+
+npm run dev
 
 **3. Setup Frontend:**
 
